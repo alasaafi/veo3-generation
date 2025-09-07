@@ -8,6 +8,7 @@ import numpy as np
 
 app = Flask(__name__)
 
+# مفتاح OpenRouter من البيئة
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 MODEL = "openai/gpt-4o-mini"
 
@@ -49,7 +50,7 @@ def trim_video(video_path, duration=30):
 # استخراج النص من الفيديو باستخدام Whisper
 # -------------------
 def transcribe_video(video_path):
-    model = whisper.load_model("base")  # يمكنك استخدام "small" أو "medium" حسب الموارد
+    model = whisper.load_model("base")  # يمكن "small" أو "medium" حسب الموارد
     result = model.transcribe(video_path)
     return result["text"]
 
