@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Veo3 Prompt Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // نسخ نص البرومبت
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => alert("✅ Prompt copied!"));
+    }
+    function closePopup() {
+      document.getElementById('promptModal').classList.add('hidden');
+      document.getElementById('promptModal').classList.remove('flex');
+    }
+  </script>
+</head>
+<body class="bg-gradient-to-r from-indigo-100 via-white to-indigo-50 flex flex-col items-center justify-center min-h-screen p-4">
+
+  <!-- Card Form -->
+  <div class="bg-white shadow-2xl rounded-3xl p-8 w-full max-w-xl text-center">
+    <h1 class="text-3xl font-extrabold mb-6 text-indigo-700">🎥 Veo3 Prompt Generator</h1>
+
+    {% if error %}
+    <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-4">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" class="flex flex-col gap-4">
+      <input type="text" name="url" placeholder="Enter YouTube video URL or Short..."
+             class="px-4 py-3 rounded-2xl border border-gray-300 w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+
+      <select name="style"
+              class="px-4 py-3 rounded-2xl border border-gray-300 w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none text-gray-700">
+        <option value="cinematic">🎬 Cinematic</option>
+        <option value="artistic">🎨 Artistic</option>
+        <option value="asmr">🎧 ASMR</option>
+        <option value="all">✨ All Styles</option>
+      </select>
+
+      <button type="submit"
+              class="mt-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition transform hover:scale-105">
+        ⚡ Get Prompt
+      </button>
+    </form>
+  </div>
+
+  <!-- Popup Modal -->
+  {% if prompts %}
+  <div id="promptModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 animate-fadeIn">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-5 relative animate-fadeIn">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">📜 Generated Prompt</h2>
+
+      <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm break-words">
+        {{ prompts }}
+      </div>
+
+      <div class="mt-3 flex justify-end gap-2">
+        <button onclick="copyToClipboard(`{{ prompts }}`)"
+                class="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded-md shadow">
+          📋 Copy
+        </button>
+        <button onclick="closePopup()"
+                class="px-3 py-1 bg-gray-300 hover:bg-gray-400 text-gray-700 text-xs rounded-md shadow">
+          ✖ Close
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <style>
+    @keyframes fadeIn { from {opacity:0;transform:scale(0.95);} to {opacity:1;transform:scale(1);} }
+    .animate-fadeIn { animation: fadeIn 0.25s ease-out; }
+  </style>
+</body>
+</html>
