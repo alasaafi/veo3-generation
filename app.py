@@ -2,10 +2,12 @@ from flask import Flask, render_template, request
 import os, tempfile, subprocess
 from openai import OpenAI
 import yt_dlp
+import whisper
+from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
 
 app = Flask(__name__)
 
-# مفتاح OpenRouter من البيئة
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 MODEL = "openai/gpt-4o-mini"
 
@@ -31,7 +33,7 @@ def download_youtube_video(url):
     return temp_file
 
 # -------------------
-# قص الفيديو (اختياري)
+# قص الفيديو
 # -------------------
 def trim_video(video_path, duration=30):
     trimmed_file = video_path.replace(".mp4", "_short.mp4")
@@ -44,20 +46,34 @@ def trim_video(video_path, duration=30):
     return trimmed_file
 
 # -------------------
-# توليد برومبت Veo3 طويل
+# استخراج النص من الفيديو باستخدام Whisper
 # -------------------
-def generate_prompt(style="cinematic"):
-    client = OpenAI(api_key=OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
-    
-    if style == "cinematic":
-        instruction = "Write a single, detailed Veo 3 cinematic prompt with vivid visuals, dynamic lighting, and immersive composition. Do not include any reference to the source video."
-    elif style == "artistic":
-        instruction = "Write a single, detailed Veo 3 artistic prompt with abstract, creative, and colorful style. Do not reference any video."
-    elif style == "asmr":
-        instruction = "Write a single, detailed Veo 3 ASMR-style prompt with calm, sensory-focused description. No mention of the video."
-    else:
-        instruction = "Write one long, detailed Veo 3 prompt in cinematic, artistic, and ASMR styles combined. Do not mention any video."
+def transcribe_video(video_path):
+    model = whisper.load_model("base")  # يمكنك استخدام "small" أو "medium" حسب الموارد
+    result = model.transcribe(video_path)
+    return result["text"]
 
+# -------------------
+# استخراج أهم الكلمات باستخدام TF-IDF
+# -------------------
+def extract_keywords(text, top_n=15):
+    vectorizer = TfidfVectorizer(stop_words="english")
+    tfidf_matrix = vectorizer.fit_transform([text])
+    scores = tfidf_matrix.toarray()[0]
+    indices = np.argsort(scores)[::-1][:top_n]
+    keywords = [vectorizer.get_feature_names_out()[i] for i in indices]
+    return keywords
+
+# -------------------
+# توليد Veo3 prompt بناءً على محتوى الفيديو
+# -------------------
+def generate_prompt_from_video(text, style="cinematic"):
+    client = OpenAI(api_key=OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
+    keywords = extract_keywords(text)
+    keywords_str = ", ".join(keywords)
+
+    instruction = f"Create a single, detailed Veo 3 {style} prompt based ONLY on these keywords: {keywords_str}. Do not reference the video link itself."
+    
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
@@ -85,11 +101,11 @@ def index():
             try:
                 video_path = download_youtube_video(video_url)
                 short_path = trim_video(video_path, duration=30)
-                prompts = generate_prompt(style)
+                transcript = transcribe_video(short_path)
+                prompts = generate_prompt_from_video(transcript, style)
             except Exception as e:
                 error = str(e)
             finally:
-                # حذف الملفات المؤقتة
                 if "video_path" in locals() and os.path.exists(video_path):
                     os.remove(video_path)
                 if "short_path" in locals() and os.path.exists(short_path):
