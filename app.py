@@ -2,13 +2,12 @@ from flask import Flask, render_template, request
 import os, tempfile, subprocess
 from openai import OpenAI
 import yt_dlp
-import whisper
+from faster_whisper import WhisperModel
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 
 app = Flask(__name__)
 
-# مفتاح OpenRouter من البيئة
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 MODEL = "openai/gpt-4o-mini"
 
@@ -47,12 +46,13 @@ def trim_video(video_path, duration=30):
     return trimmed_file
 
 # -------------------
-# استخراج النص من الفيديو باستخدام Whisper
+# استخراج النص باستخدام faster-whisper
 # -------------------
 def transcribe_video(video_path):
-    model = whisper.load_model("base")  # يمكن "small" أو "medium" حسب الموارد
-    result = model.transcribe(video_path)
-    return result["text"]
+    model = WhisperModel("base")  # يمكنك استخدام "small" أو "medium"
+    segments, _ = model.transcribe(video_path, beam_size=5)
+    transcript = " ".join([segment.text for segment in segments])
+    return transcript
 
 # -------------------
 # استخراج أهم الكلمات باستخدام TF-IDF
