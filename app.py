@@ -5,6 +5,7 @@ import yt_dlp
 
 app = Flask(__name__)
 
+# مفتاح OpenRouter من البيئة
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 MODEL = "openai/gpt-4o-mini"
 
@@ -48,7 +49,6 @@ def trim_video(video_path, duration=30):
 def generate_prompt(style="cinematic"):
     client = OpenAI(api_key=OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
     
-    # تعليمات حسب style
     if style == "cinematic":
         instruction = "Write a single, detailed Veo 3 cinematic prompt with vivid visuals, dynamic lighting, and immersive composition. Do not include any reference to the source video."
     elif style == "artistic":
