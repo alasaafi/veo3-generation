@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request
-import os, tempfile, subprocess
+import os, subprocess, tempfile
 from openai import OpenAI
 import yt_dlp
 from faster_whisper import WhisperModel
@@ -10,46 +10,34 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 MODEL = "openai/gpt-4o-mini"
 
 # -------------------
-# تحميل الفيديو
+# تحميل الفيديو وقصه باستخدام TemporaryDirectory
 # -------------------
-def download_youtube_video(url):
-    temp_dir = tempfile.mkdtemp()
-    temp_file = os.path.join(temp_dir, "video.mp4")
+def download_and_trim_youtube(video_url, duration=30):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        video_path = os.path.join(tmpdir, "video.mp4")
+        short_path = os.path.join(tmpdir, "video_short.mp4")
 
-    ydl_opts = {
-        "format": "mp4",
-        "outtmpl": temp_file,
-        "quiet": True,
-        "noplaylist": True,
-        "ignoreerrors": True,
-        "merge_output_format": "mp4"
-    }
+        # تحميل الفيديو
+        ydl_opts = {"format": "mp4", "outtmpl": video_path, "quiet": True, "noplaylist": True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([video_url])
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+        # قص الفيديو
+        cmd = ["ffmpeg", "-y", "-i", video_path, "-t", str(duration), "-c", "copy", short_path]
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    return temp_file
+        if not os.path.exists(short_path):
+            raise FileNotFoundError("Failed to create the short video.")
 
-# -------------------
-# قص الفيديو
-# -------------------
-def trim_video(video_path, duration=30):
-    trimmed_file = video_path.replace(".mp4", "_short.mp4")
-    cmd = [
-        "ffmpeg", "-y", "-i", video_path,
-        "-t", str(duration),
-        "-c", "copy", trimmed_file
-    ]
-    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return trimmed_file
+        return short_path
 
 # -------------------
 # تفريغ الصوت باستخدام faster-whisper
 # -------------------
 def transcribe_video(video_path):
-    model = WhisperModel("base")  # "small", "medium", "large-v2" حسب الحاجة
+    model = WhisperModel("base")  # يمكن تغيير الحجم "small", "medium", "large-v2"
     segments, _ = model.transcribe(video_path, beam_size=5)
-    transcript = " ".join([segment.text for segment in segments])
+    transcript = " ".join([seg.text for seg in segments])
     return transcript
 
 # -------------------
@@ -66,7 +54,7 @@ def extract_keywords(text, top_n=15):
 # -------------------
 # توليد Veo 3 prompt
 # -------------------
-def generate_prompt_from_video(text, style="cinematic"):
+def generate_prompt_from_text(text, style="cinematic"):
     client = OpenAI(api_key=OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
     keywords = extract_keywords(text)
     keywords_str = ", ".join(keywords)
@@ -98,17 +86,11 @@ def index():
             error = "Please enter a video URL."
         else:
             try:
-                video_path = download_youtube_video(video_url)
-                short_path = trim_video(video_path, duration=30)
+                short_path = download_and_trim_youtube(video_url, duration=30)
                 transcript = transcribe_video(short_path)
-                prompts = generate_prompt_from_video(transcript, style)
+                prompts = generate_prompt_from_text(transcript, style)
             except Exception as e:
                 error = str(e)
-            finally:
-                if "video_path" in locals() and os.path.exists(video_path):
-                    os.remove(video_path)
-                if "short_path" in locals() and os.path.exists(short_path):
-                    os.remove(short_path)
 
     return render_template("index.html", prompts=prompts, error=error)
 
