@@ -3,8 +3,6 @@ import os, tempfile, subprocess
 from openai import OpenAI
 import yt_dlp
 from faster_whisper import WhisperModel
-from sklearn.feature_extraction.text import TfidfVectorizer
-import numpy as np
 
 app = Flask(__name__)
 
@@ -46,27 +44,27 @@ def trim_video(video_path, duration=30):
     return trimmed_file
 
 # -------------------
-# استخراج النص باستخدام faster-whisper
+# تفريغ الصوت باستخدام faster-whisper
 # -------------------
 def transcribe_video(video_path):
-    model = WhisperModel("base")  # يمكنك استخدام "small" أو "medium"
+    model = WhisperModel("base")  # "small", "medium", "large-v2" حسب الحاجة
     segments, _ = model.transcribe(video_path, beam_size=5)
     transcript = " ".join([segment.text for segment in segments])
     return transcript
 
 # -------------------
-# استخراج أهم الكلمات باستخدام TF-IDF
+# استخراج أهم الكلمات بدون scikit-learn
 # -------------------
 def extract_keywords(text, top_n=15):
-    vectorizer = TfidfVectorizer(stop_words="english")
-    tfidf_matrix = vectorizer.fit_transform([text])
-    scores = tfidf_matrix.toarray()[0]
-    indices = np.argsort(scores)[::-1][:top_n]
-    keywords = [vectorizer.get_feature_names_out()[i] for i in indices]
+    words = text.split()
+    freq = {}
+    for w in words:
+        freq[w] = freq.get(w, 0) + 1
+    keywords = sorted(freq, key=freq.get, reverse=True)[:top_n]
     return keywords
 
 # -------------------
-# توليد Veo3 prompt بناءً على محتوى الفيديو
+# توليد Veo 3 prompt
 # -------------------
 def generate_prompt_from_video(text, style="cinematic"):
     client = OpenAI(api_key=OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1")
@@ -74,7 +72,7 @@ def generate_prompt_from_video(text, style="cinematic"):
     keywords_str = ", ".join(keywords)
 
     instruction = f"Create a single, detailed Veo 3 {style} prompt based ONLY on these keywords: {keywords_str}. Do not reference the video link itself."
-    
+
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
