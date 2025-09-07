@@ -18,7 +18,14 @@ def download_and_trim_youtube(video_url, duration=30):
         short_path = os.path.join(tmpdir, "video_short.mp4")
 
         # تحميل الفيديو
-        ydl_opts = {"format": "mp4", "outtmpl": video_path, "quiet": True, "noplaylist": True}
+        ydl_opts = {
+            "format": "mp4",
+            "outtmpl": video_path,
+            "cookies": "cookies.txt",
+            "quiet": True,
+            "noplaylist": True
+
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([video_url])
 
